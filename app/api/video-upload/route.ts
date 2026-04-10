@@ -1,7 +1,7 @@
 import { NextRequest,NextResponse } from "next/server";
 import {v2 as cloudinary} from 'cloudinary';
 import {auth} from '@clerk/nextjs/server';
-import { PrismaClient } from "../../generated/prisma/client";
+import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis as unknown as {
