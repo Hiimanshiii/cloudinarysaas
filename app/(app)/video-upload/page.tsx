@@ -37,11 +37,45 @@ function VideoUpload() {
     
       try{
         const token = await getToken();
-        const response= await axios.post("/api/video-upload",formData,{
+        
+        // 1. Get Cloudinary upload signature
+        const signResponse = await axios.post("/api/sign-cloudinary", {}, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        const { timestamp, signature, apiKey, cloudName } = signResponse.data;
+
+        // 2. Upload video directly to Cloudinary
+        const cloudFormData = new FormData();
+        cloudFormData.append("file", file);
+        cloudFormData.append("api_key", apiKey);
+        cloudFormData.append("timestamp", timestamp.toString());
+        cloudFormData.append("signature", signature);
+        cloudFormData.append("folder", "video-uploads");
+
+        const cloudResponse = await axios.post(
+          `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
+          cloudFormData
+        );
+        const cloudinaryData = cloudResponse.data;
+
+        // 3. Save video metadata to our database
+        const backendPayload = {
+          title,
+          description,
+          originalSize: file.size.toString(),
+          publicId: cloudinaryData.public_id,
+          compressedSize: String(cloudinaryData.bytes || 0),
+          duration: cloudinaryData.duration || 0,
+        };
+
+        const response= await axios.post("/api/video-upload", backendPayload, {
           headers: {
             Authorization: `Bearer ${token}`
           }
         })
+        
         if (response.data && response.data.video) {
           router.push("/home");
         }
@@ -52,7 +86,6 @@ function VideoUpload() {
       finally{
         setIsUploading(false);
       }
-   
     }
 
 

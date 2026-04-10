@@ -36,51 +36,29 @@ export async function POST(request:NextRequest){
         }
 
         try{
-        const formData = await request.formData();
-        const file = formData.get('file') as File;
-        const title=formData.get('title') as string;
-        const description=formData.get('description') as string;
-        const originalSize=formData.get('originalSize') as string; 
-        if(!file){
-            return NextResponse.json({error:"No file uploaded"},{status:400})
-        }
-        const buffer = Buffer.from(await file.arrayBuffer());
-        
-        const result = await new Promise<cloudinaryUploadResult>((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-                {
-                    folder: "video-uploads",
-                    resource_type: 'video',
-                    transformation: [{width:800,crop:'scale'}]
-                },
-                (error,result)=>{
-                    if(error){
-                        console.error("Upload error:",error);
-                        reject(error);
-                    } else {
-                        resolve(result as cloudinaryUploadResult);
-                    }
-                }
-            )
-            uploadStream.end(buffer);
-        })
+            const body = await request.json();
+            const { title, description, originalSize, publicId, compressedSize, duration } = body;
 
-        const video=await prisma.video.create({
-            data:{
-                title,
-                description,
-                originalSize,
-                compressedSize: String(result?.bytes || 0),
-                publicId:result?.public_id || "",
-                duration:result?.duration || 0
+            if(!publicId){
+                return NextResponse.json({error:"No publicId provided"},{status:400})
             }
-        })   
-        return NextResponse.json({video})    
-    }
-    catch(error){
-        console.error("Error in video upload:",error);
-        return NextResponse.json({error:"Upload failed"},{status:500})
-    }   finally{
-        await prisma.$disconnect();
-    }
+
+            const video=await prisma.video.create({
+                data:{
+                    title,
+                    description,
+                    originalSize,
+                    compressedSize,
+                    publicId,
+                    duration
+                }
+            })   
+            return NextResponse.json({video})    
+        }
+        catch(error){
+            console.error("Error saving video metadata:",error);
+            return NextResponse.json({error:"Failed to save video metadata"},{status:500})
+        }   finally{
+            await prisma.$disconnect();
+        }
 }
